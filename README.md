@@ -2,358 +2,450 @@
 
 AI-powered social media content planning and scheduling tool for Instagram, Threads, and Note.
 
-## 概要
+## Overview
 
-SNS Content Autopilotは、Instagram、Threads、Noteの投稿を一元管理し、AI（OpenAI GPT-4）で高品質なコンテンツアイデアと投稿ドラフトを自動生成するSaaSツールです。
+SNS Content Autopilot is a full-stack SaaS application that streamlines social media content management across Instagram, Threads, and Note. It uses OpenAI GPT-4 to generate high-quality content ideas and post drafts, provides calendar-based scheduling, and tracks performance analytics.
 
-### 主な機能
+**Key Features:**
+- AI-powered content idea generation from simple themes
+- Platform-specific content optimization (Instagram/Threads/Note)
+- Visual calendar for monthly post scheduling
+- Brand tone customization per platform
+- Automated post scheduling with worker system
+- Performance analytics and insights
 
-- **AIコンテンツ生成**: テーマを入力するだけで、複数のコンテンツアイデアと投稿ドラフトを自動生成
-- **投稿カレンダー**: 月次ビューで投稿スケジュールを視覚的に管理
-- **マルチプラットフォーム対応**: Instagram、Threads、Note向けに最適化されたコンテンツを生成
-- **ブランドトーン管理**: プラットフォームごとにブランドの声やスタイルをカスタマイズ
-- **自動投稿スケジューラー**: 予約投稿の自動実行（Cron対応）
-- **パフォーマンス分析**: エンゲージメント、リーチ、インプレッションなどの指標を可視化
+## Tech Stack
 
-## 技術スタック
+- **Frontend**: Next.js 14 (App Router), React 18, TypeScript, Tailwind CSS
+- **Backend**: Next.js API Routes with Zod validation
+- **Database**: PostgreSQL with Prisma ORM
+- **AI**: OpenAI GPT-4 API
+- **Visualization**: Recharts
+- **Testing**: Vitest
+- **Containerization**: Docker & Docker Compose
 
-- **フロントエンド**: Next.js 14 (App Router) + TypeScript + Tailwind CSS
-- **バックエンド**: Next.js API Routes
-- **データベース**: PostgreSQL + Prisma ORM
-- **AI**: OpenAI API (GPT-4)
-- **チャート**: Recharts
-- **日付処理**: date-fns
+## Domain Model
 
-## セットアップ
+```
+BrandAccount
+├── platform: INSTAGRAM | THREADS | NOTE
+├── handle: string
+├── accessToken: string (encrypted)
+└── toneProfile: JSON
+    ├── voice: string
+    ├── style: string
+    ├── targetAudience: string
+    └── platform-specific settings
 
-### 前提条件
+ContentIdea
+├── brandId → BrandAccount
+├── date: DateTime
+├── theme: string
+├── hook: string
+├── outline: string
+└── status: DRAFT | APPROVED | USED | ARCHIVED
 
-- Node.js 18+
-- PostgreSQL 14+
-- OpenAI APIキー
+PostDraft
+├── brandId → BrandAccount
+├── ideaId → ContentIdea (optional)
+├── platform: INSTAGRAM | THREADS | NOTE
+├── scheduledAt: DateTime
+├── caption: string
+├── mediaPlan: JSON
+├── hashtags: string[]
+├── status: DRAFT | SCHEDULED | PUBLISHED | FAILED
+└── resultStats: JSON (likes, comments, reach, etc.)
+```
 
-### インストール
+## Getting Started
 
-1. リポジトリをクローン:
+### Requirements
+
+- Node.js 20+
+- Docker & Docker Compose (recommended)
+- OpenAI API key
+
+### Quick Start with Docker
+
+1. **Clone the repository:**
 
 ```bash
-git clone https://github.com/yourusername/sns-content-autopilot.git
+git clone <repository-url>
 cd sns-content-autopilot
 ```
 
-2. 依存関係をインストール:
-
-```bash
-npm install
-```
-
-3. 環境変数を設定:
+2. **Set up environment variables:**
 
 ```bash
 cp .env.example .env
 ```
 
-`.env`ファイルを編集して以下を設定:
+Edit `.env` and add your OpenAI API key:
 
 ```env
-DATABASE_URL="postgresql://user:password@localhost:5432/sns_autopilot?schema=public"
-OPENAI_API_KEY="sk-..."
-ENCRYPTION_KEY="your-32-character-encryption-key-here"
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/sns_autopilot?schema=public"
+OPENAI_API_KEY="sk-your-openai-api-key-here"
+ENCRYPTION_KEY="dev-key-32-chars-long-needed!"
 NODE_ENV="development"
 ```
 
-4. データベースをセットアップ:
+3. **Start the application with Docker:**
+
+```bash
+# Start PostgreSQL and the app
+docker compose up -d
+
+# Run database migrations
+docker compose exec app npx prisma db push
+
+# Seed demo data
+docker compose exec app npm run db:seed
+```
+
+4. **Access the application:**
+
+Open [http://localhost:3000](http://localhost:3000)
+
+### Local Development (without Docker)
+
+1. **Install dependencies:**
+
+```bash
+npm install
+```
+
+2. **Start PostgreSQL:**
+
+```bash
+# Using Docker for database only
+docker compose -f docker-compose.dev.yml up -d
+
+# Or use your local PostgreSQL instance
+# Update DATABASE_URL in .env accordingly
+```
+
+3. **Set up database:**
 
 ```bash
 npm run db:push
 npm run db:seed
 ```
 
-5. 開発サーバーを起動:
+4. **Start development server:**
 
 ```bash
 npm run dev
 ```
 
-ブラウザで http://localhost:3000 を開く
+5. **Open [http://localhost:3000](http://localhost:3000)**
 
-## 使い方
+## Example Flow: Content Idea to Published Post
 
-### 1. ブランドアカウントの登録
+This demonstrates the complete vertical slice implemented in the application.
 
-初回は`npm run db:seed`でサンプルアカウントが作成されます。実際の使用では、各プラットフォームのアクセストークンを登録します。
+### 1. Generate Content Ideas (AI-Powered)
 
-```typescript
-// ブランドアカウントの例
-{
-  platform: "INSTAGRAM",
-  handle: "@my_lifestyle_brand",
-  accessToken: "encrypted_token",
-  toneProfile: {
-    voice: "friendly",
-    style: "inspirational",
-    emojis: true,
-    hashtagCount: 15,
-    targetAudience: "lifestyle enthusiasts aged 25-35"
-  }
-}
-```
-
-### 2. コンテンツアイデアの生成
-
-1. **Ideas**ページへ移動
-2. **Generate Ideas**をクリック
-3. 以下を入力:
-   - ブランドアカウント
-   - テーマ（例: "朝のルーティンで生産性向上"）
-   - ターゲット日付
-   - 生成する数（1-10）
-
-AIが自動的に以下を生成:
-- 洗練されたテーマ
-- 注目を集めるフック（冒頭文）
-- 詳細なアウトライン
-
-### 3. 投稿ドラフトの作成
-
-1. アイデア一覧から**Generate Draft**をクリック
-2. AIが以下を自動生成:
-   - プラットフォームに最適化されたキャプション
-   - 戦略的なハッシュタグ
-   - メディアプラン（画像/動画の提案）
-
-### 4. ドラフトの編集と予約
-
-1. **Drafts**ページで生成されたドラフトを確認
-2. 必要に応じてキャプションを編集
-3. 投稿日時を設定
-4. **Schedule Post**で予約完了
-
-### 5. 自動投稿
-
-Workerを定期実行して予約投稿を自動公開:
+**Endpoint:** `POST /api/ideas/generate`
 
 ```bash
-# 手動実行
+curl -X POST http://localhost:3000/api/ideas/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "brandId": "clq...",
+    "theme": "Morning productivity tips",
+    "date": "2025-01-20T09:00:00Z",
+    "count": 3
+  }'
+```
+
+**UI:** Visit `/ideas` → Click "Generate Ideas" → Enter theme and date
+
+AI will generate 3 unique content ideas with:
+- Refined theme
+- Attention-grabbing hook
+- Detailed outline
+
+### 2. Review and Approve Ideas
+
+**Endpoint:** `PATCH /api/ideas/{id}`
+
+```bash
+curl -X PATCH http://localhost:3000/api/ideas/clq123 \
+  -H "Content-Type: application/json" \
+  -d '{"status": "APPROVED"}'
+```
+
+**UI:** `/ideas` → Click "Approve" on any idea
+
+### 3. Generate Post Draft from Idea
+
+**Endpoint:** `POST /api/drafts/generate`
+
+```bash
+curl -X POST http://localhost:3000/api/drafts/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "ideaId": "clq123",
+    "scheduledAt": "2025-01-20T09:00:00Z"
+  }'
+```
+
+**UI:** `/ideas` → Click "Generate Draft" on an approved idea
+
+AI creates a complete post with:
+- Platform-optimized caption
+- Strategic hashtags (based on brand tone)
+- Media plan with visual suggestions
+
+### 4. Edit and Schedule Post
+
+**Endpoint:** `PATCH /api/drafts/{id}`
+
+```bash
+curl -X PATCH http://localhost:3000/api/drafts/clq456 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "caption": "Updated caption...",
+    "scheduledAt": "2025-01-20T09:00:00Z",
+    "status": "SCHEDULED"
+  }'
+```
+
+**UI:** `/drafts` → Select draft → Click "Edit" → Set schedule → "Schedule Post"
+
+### 5. Automated Publishing
+
+**Worker:** Runs via cron or manually
+
+```bash
 npm run worker
-
-# Cronで5分ごとに実行（本番環境）
-*/5 * * * * cd /path/to/sns-content-autopilot && npm run worker
 ```
 
-### 6. パフォーマンス分析
+The worker:
+- Finds all `SCHEDULED` posts due for publication
+- Publishes via SNS client (currently dummy implementation)
+- Updates status to `PUBLISHED`
+- Saves performance stats
 
-**Analytics**ページで以下を確認:
-- 総投稿数、いいね数、リーチ数
-- 時系列のエンゲージメント推移
-- プラットフォーム別パフォーマンス
-- トップパフォーマンス投稿
+### 6. View Analytics
 
-## ユースケース例：ライフスタイルブランドの場合
+**Endpoint:** `GET /api/drafts?status=PUBLISHED`
 
-### ブランド戦略
+**UI:** Visit `/analytics` to see:
+- Total engagement metrics
+- Performance trends over time
+- Platform comparison
+- Top-performing posts
 
-**ターゲット**: 25-35歳の都市部に住む女性、キャリアとウェルネスの両立に関心
-**ブランドボイス**: フレンドリーで励ましの雰囲気、共感を重視
+## API Reference
 
-### プラットフォーム別戦略
+### Content Ideas
 
-#### Instagram (@my_lifestyle_brand)
-- **投稿頻度**: 週3-5回
-- **コンテンツタイプ**: カルーセル投稿中心、Before/After、Tipsリスト
-- **トーン**: インスピレーショナル、ビジュアル重視
-- **ハッシュタグ**: 15個（ブランド、コミュニティ、トレンド混合）
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/ideas` | List all ideas (with filters) |
+| POST | `/api/ideas` | Create idea manually |
+| GET | `/api/ideas/{id}` | Get single idea |
+| PATCH | `/api/ideas/{id}` | Update idea |
+| DELETE | `/api/ideas/{id}` | Delete idea |
+| POST | `/api/ideas/generate` | Generate ideas with AI |
 
-**テーマ例**:
-- 朝のルーティンで1日を最適化
-- 忙しい人のための5分セルフケア
-- サステナブルな暮らしのヒント
+### Post Drafts
 
-#### Threads (@my_lifestyle_brand_threads)
-- **投稿頻度**: 毎日
-- **コンテンツタイプ**: 短いTips、質問投稿、コミュニティとの対話
-- **トーン**: カジュアル、会話的
-- **ハッシュタグ**: 控えめ（3-5個）
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/drafts` | List all drafts (with filters) |
+| POST | `/api/drafts` | Create draft manually |
+| GET | `/api/drafts/{id}` | Get single draft |
+| PATCH | `/api/drafts/{id}` | Update draft |
+| DELETE | `/api/drafts/{id}` | Delete draft |
+| POST | `/api/drafts/generate` | Generate draft from idea |
 
-**テーマ例**:
-- 今朝の発見シェア
-- フォロワーへの質問
-- トレンドへのリアクション
+### Brand Accounts
 
-#### Note (my_lifestyle_brand_note)
-- **投稿頻度**: 週1-2回
-- **コンテンツタイプ**: 長文ストーリー、詳細ガイド、体験談
-- **トーン**: プロフェッショナルかつパーソナル
-- **ハッシュタグ**: ほぼなし
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/brands` | List all brands |
+| POST | `/api/brands` | Create brand account |
+| GET | `/api/brands/{id}` | Get single brand |
+| PATCH | `/api/brands/{id}` | Update brand |
+| DELETE | `/api/brands/{id}` | Delete brand |
 
-**テーマ例**:
-- キャリア転換の全記録
-- 30日チャレンジの振り返り
-- 専門家インタビュー
+## Available Scripts
 
-### 実際のワークフロー
+```bash
+# Development
+npm run dev              # Start Next.js dev server
+npm run build            # Build for production
+npm run start            # Start production server
+npm run lint             # Lint code
 
-```
-月曜日:
-1. 週のテーマを決定（例: "生産性向上"）
-2. AIで3つのアイデアを生成
-3. 最も良いアイデアを選んでApprove
+# Testing
+npm test                 # Run tests once
+npm run test:watch       # Run tests in watch mode
+npm run test:ui          # Open Vitest UI
 
-火曜日:
-1. 承認したアイデアからInstagram用ドラフトを生成
-2. 画像プランに基づいてCanvaで画像作成
-3. キャプションを微調整
-4. 木曜朝9:00に予約
+# Database
+npm run db:push          # Push schema to database
+npm run db:migrate       # Create migration
+npm run db:studio        # Open Prisma Studio
+npm run db:seed          # Seed demo data
 
-水曜日:
-1. 同じアイデアをThreads版に変換（短く、会話的に）
-2. 木曜昼12:00に予約
+# Worker
+npm run worker           # Run post scheduler once
 
-木曜日:
-- 自動投稿される（Workerが実行）
-
-金曜日:
-- Analyticsページでエンゲージメント確認
-- 好調な投稿のテーマを次週に活用
-```
-
-## アーキテクチャ
-
-### データモデル
-
-```
-BrandAccount (ブランドアカウント)
-├── platform: Instagram | Threads | Note
-├── handle: @username
-├── accessToken: 暗号化されたアクセストークン
-└── toneProfile: ブランドの声とスタイル設定
-
-ContentIdea (コンテンツアイデア)
-├── theme: テーマ
-├── hook: フック（冒頭文）
-├── outline: アウトライン
-└── status: Draft | Approved | Used | Archived
-
-PostDraft (投稿ドラフト)
-├── caption: キャプション
-├── hashtags: ハッシュタグ配列
-├── mediaPlan: メディアプラン（JSON）
-├── scheduledAt: 予約日時
-├── status: Draft | Scheduled | Published | Failed
-└── resultStats: パフォーマンス指標（JSON）
+# Docker
+npm run docker:up        # Start all services
+npm run docker:down      # Stop all services
+npm run docker:logs      # View logs
 ```
 
-### SNSクライアントの拡張
+## Demo Data
 
-現在はダミー実装ですが、実際のSNS APIに簡単に置き換えられる設計:
+After running `npm run db:seed`, you'll have:
+
+**Brand Accounts:**
+- Instagram: `@my_brand_ig` (lifestyle/inspirational tone)
+- Threads: `@my_brand_threads` (conversational/tech-savvy)
+- Note: `my_brand_note` (professional/storytelling)
+
+**Content Ideas:**
+- Morning Motivation (Approved)
+- Productivity Hacks (Draft)
+- Tech Trends (Approved)
+
+**Post Drafts:**
+- Instagram post (Scheduled for tomorrow 9 AM)
+- Threads post (Scheduled for tomorrow 12 PM)
+- Instagram post (Published 2 days ago with stats)
+
+**Demo Flow:**
+1. Visit `/ideas` - See AI-generated ideas
+2. Visit `/drafts` - See scheduled posts
+3. Visit `/calendar` - View posts on calendar
+4. Visit `/analytics` - See performance metrics
+
+## Testing
+
+Run the test suite:
+
+```bash
+npm test
+```
+
+Current test coverage:
+- Validation schemas (Zod)
+- Encryption/decryption utilities
+- (Add more as needed)
+
+## Deployment
+
+### Production with Docker
+
+```bash
+# Build and run
+docker compose up -d
+
+# Apply migrations
+docker compose exec app npx prisma migrate deploy
+
+# Seed data (optional)
+docker compose exec app npm run db:seed
+```
+
+### Vercel Deployment
+
+1. Push to GitHub
+2. Import to Vercel
+3. Set environment variables:
+   - `DATABASE_URL`
+   - `OPENAI_API_KEY`
+   - `ENCRYPTION_KEY`
+4. Deploy
+
+**Note:** For the worker/scheduler, use:
+- Vercel Cron Jobs (Pro plan)
+- External cron service (cron-job.org)
+- Separate worker on Railway/Fly.io
+
+## Architecture Decisions
+
+### Why Dummy SNS Clients?
+
+The SNS clients (`InstagramClient`, `ThreadsClient`, `NoteClient`) are currently dummy implementations that log actions and return simulated data. This design allows:
+
+1. **Development without API credentials** - Build and test the full flow
+2. **Easy integration** - Real API clients can be swapped in without changing the interface
+3. **Predictable testing** - Consistent responses for development
+
+### Integrating Real APIs
+
+To integrate actual SNS APIs:
+
+1. Implement the `BaseSNSClient` interface in each client
+2. Add OAuth flow for access tokens
+3. Update `createSNSClient` factory
+
+Example:
 
 ```typescript
 // src/lib/sns-clients/instagram.ts
 export class InstagramClient extends BaseSNSClient {
   async publish(caption: string, mediaUrls: string[]): Promise<PostResult> {
-    // TODO: Instagram Graph API統合
-    // const response = await fetch('https://graph.instagram.com/...')
+    // Real Instagram Graph API implementation
+    const response = await fetch(
+      `https://graph.facebook.com/v18.0/${this.userId}/media`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`,
+        },
+        body: JSON.stringify({
+          caption,
+          media_type: 'IMAGE',
+          image_url: mediaUrls[0],
+        }),
+      }
+    )
     // ...
   }
 }
 ```
 
-実装時の参考:
-- **Instagram**: [Instagram Graph API](https://developers.facebook.com/docs/instagram-api/)
-- **Threads**: [Threads API](https://developers.facebook.com/docs/threads) (2024年に公開予定)
-- **Note**: [Note API](https://note.com/api) (公式APIドキュメント)
+## Future Extensions
 
-## 開発
+- [ ] Real Instagram Graph API integration
+- [ ] Threads API integration (when public)
+- [ ] Note API integration
+- [ ] AI image generation (DALL-E)
+- [ ] A/B testing for captions
+- [ ] Hashtag performance tracking
+- [ ] Optimal posting time recommendations
+- [ ] Multi-user collaboration
+- [ ] Instagram Stories support
+- [ ] Video content support
+- [ ] Content calendar templates
+- [ ] Bulk scheduling
 
-### データベーススキーマの変更
+## Contributing
 
-```bash
-# スキーマ変更後
-npm run db:push
+Contributions welcome! Please:
 
-# マイグレーション生成（本番環境向け）
-npm run db:migrate
-```
+1. Fork the repository
+2. Create a feature branch
+3. Add tests for new functionality
+4. Submit a pull request
 
-### Prisma Studio
-
-データベースをGUIで確認:
-
-```bash
-npm run db:studio
-```
-
-### ディレクトリ構造
-
-```
-sns-content-autopilot/
-├── prisma/
-│   ├── schema.prisma          # データベーススキーマ
-│   └── seed.ts                # シードデータ
-├── src/
-│   ├── app/                   # Next.js App Router
-│   │   ├── api/               # API Routes
-│   │   ├── calendar/          # カレンダーページ
-│   │   ├── ideas/             # アイデア管理
-│   │   ├── drafts/            # ドラフト管理
-│   │   └── analytics/         # 分析ダッシュボード
-│   ├── components/            # 共通コンポーネント
-│   ├── lib/
-│   │   ├── db.ts              # Prismaクライアント
-│   │   ├── encryption.ts      # トークン暗号化
-│   │   ├── llm.ts             # OpenAI統合
-│   │   └── sns-clients/       # SNSクライアント
-│   └── workers/
-│       └── post-scheduler.ts  # 投稿スケジューラー
-└── package.json
-```
-
-## デプロイ
-
-### Vercel（推奨）
-
-```bash
-vercel
-```
-
-環境変数を設定:
-- `DATABASE_URL`
-- `OPENAI_API_KEY`
-- `ENCRYPTION_KEY`
-
-### Workerのセットアップ
-
-VercelではCronジョブが使えないため、以下の方法を推奨:
-
-1. **Vercel Cron Jobs** (Proプラン)
-2. **外部Cronサービス** (Cron-job.org、EasyCron等)
-   - エンドポイント: `https://your-app.vercel.app/api/cron/publish`
-   - 頻度: 5分ごと
-
-3. **別サーバーでWorker実行** (AWS Lambda、Railway等)
-
-## ロードマップ
-
-- [ ] 実際のInstagram Graph API統合
-- [ ] Threads API統合（公開され次第）
-- [ ] Note API統合
-- [ ] 画像自動生成（DALL-E / Midjourney連携）
-- [ ] A/Bテスト機能
-- [ ] ハッシュタグ推薦AI
-- [ ] 最適投稿時間の推薦
-- [ ] チームコラボレーション機能
-- [ ] マルチアカウント管理
-- [ ] Instagramストーリーズ対応
-- [ ] リール動画の自動生成案
-
-## ライセンス
+## License
 
 MIT
 
-## 貢献
+## Support
 
-プルリクエスト歓迎です！
+For issues or questions:
+- Open an [Issue](https://github.com/yourusername/sns-content-autopilot/issues)
+- Check existing documentation
 
-## サポート
+---
 
-問題が発生した場合は、[Issues](https://github.com/yourusername/sns-content-autopilot/issues)を開いてください。
+**Built with ❤️ for content creators and social media managers**

@@ -5,6 +5,7 @@ const nextConfig = {
       bodySizeLimit: '2mb',
     },
   },
+  output: 'standalone',
 }
 
 module.exports = nextConfig

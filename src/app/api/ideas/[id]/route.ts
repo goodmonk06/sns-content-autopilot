@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { IdeaStatus } from '@prisma/client'
+import { handleError, validateRequest, AppError } from '@/lib/errors'
+import {
+  updateContentIdeaSchema,
+  type UpdateContentIdeaInput,
+} from '@/lib/validations'
 
 export async function GET(
   request: NextRequest,
@@ -16,19 +20,12 @@ export async function GET(
     })
 
     if (!idea) {
-      return NextResponse.json(
-        { error: 'Idea not found' },
-        { status: 404 }
-      )
+      throw new AppError(404, 'Idea not found')
     }
 
     return NextResponse.json(idea)
   } catch (error) {
-    console.error('Error fetching idea:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch idea' },
-      { status: 500 }
-    )
+    return handleError(error)
   }
 }
 
@@ -38,30 +35,30 @@ export async function PATCH(
 ) {
   try {
     const body = await request.json()
-    const { date, theme, hook, outline, status } = body
+    const data = validateRequest<UpdateContentIdeaInput>(
+      updateContentIdeaSchema,
+      body
+    )
 
     const updateData: any = {}
-    if (date) updateData.date = new Date(date)
-    if (theme) updateData.theme = theme
-    if (hook) updateData.hook = hook
-    if (outline) updateData.outline = outline
-    if (status) updateData.status = status as IdeaStatus
+    if (data.date) updateData.date = new Date(data.date)
+    if (data.theme) updateData.theme = data.theme
+    if (data.hook) updateData.hook = data.hook
+    if (data.outline) updateData.outline = data.outline
+    if (data.status) updateData.status = data.status
 
     const idea = await prisma.contentIdea.update({
       where: { id: params.id },
       data: updateData,
       include: {
-        brand: true
+        brand: true,
+        postDrafts: true
       }
     })
 
     return NextResponse.json(idea)
   } catch (error) {
-    console.error('Error updating idea:', error)
-    return NextResponse.json(
-      { error: 'Failed to update idea' },
-      { status: 500 }
-    )
+    return handleError(error)
   }
 }
 
@@ -76,10 +73,6 @@ export async function DELETE(
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Error deleting idea:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete idea' },
-      { status: 500 }
-    )
+    return handleError(error)
   }
 }

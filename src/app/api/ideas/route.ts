@@ -1,20 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { IdeaStatus } from '@prisma/client'
+import { handleError, validateRequest } from '@/lib/errors'
+import {
+  createContentIdeaSchema,
+  ideasQuerySchema,
+  type CreateContentIdeaInput,
+} from '@/lib/validations'
 
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams
-    const brandId = searchParams.get('brandId')
-    const startDate = searchParams.get('startDate')
-    const endDate = searchParams.get('endDate')
+    const searchParams = Object.fromEntries(request.nextUrl.searchParams)
+    const query = validateRequest<any>(ideasQuerySchema, searchParams)
 
     const where: any = {}
-    if (brandId) where.brandId = brandId
-    if (startDate && endDate) {
+    if (query.brandId) where.brandId = query.brandId
+    if (query.status) where.status = query.status
+    if (query.startDate && query.endDate) {
       where.date = {
-        gte: new Date(startDate),
-        lte: new Date(endDate)
+        gte: new Date(query.startDate),
+        lte: new Date(query.endDate)
       }
     }
 
@@ -29,34 +33,26 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(ideas)
   } catch (error) {
-    console.error('Error fetching ideas:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch ideas' },
-      { status: 500 }
-    )
+    return handleError(error)
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { brandId, date, theme, hook, outline, status } = body
-
-    if (!brandId || !date || !theme || !hook || !outline) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      )
-    }
+    const data = validateRequest<CreateContentIdeaInput>(
+      createContentIdeaSchema,
+      body
+    )
 
     const idea = await prisma.contentIdea.create({
       data: {
-        brandId,
-        date: new Date(date),
-        theme,
-        hook,
-        outline,
-        status: (status as IdeaStatus) || 'DRAFT'
+        brandId: data.brandId,
+        date: new Date(data.date),
+        theme: data.theme,
+        hook: data.hook,
+        outline: data.outline,
+        status: data.status || 'DRAFT'
       },
       include: {
         brand: true
@@ -65,10 +61,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(idea, { status: 201 })
   } catch (error) {
-    console.error('Error creating idea:', error)
-    return NextResponse.json(
-      { error: 'Failed to create idea' },
-      { status: 500 }
-    )
+    return handleError(error)
   }
 }
