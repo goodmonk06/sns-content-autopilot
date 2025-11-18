@@ -30,6 +30,36 @@ enum PostStatus {
   FAILED
 }
 
+enum CampaignStatus {
+  PLANNING
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum TemplateCategory {
+  PROMOTIONAL
+  EDUCATIONAL
+  ENGAGEMENT
+  ANNOUNCEMENT
+  SEASONAL
+  EVERGREEN
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+  CAROUSEL
+  STORY
+}
+
+enum SchedulingStrategy {
+  OPTIMAL_ENGAGEMENT
+  CONSISTENT_TIMING
+  FOLLOWER_ACTIVITY
+  CUSTOM
+}
+
 model BrandAccount {
   id            String   @id @default(cuid())
   platform      Platform
@@ -39,8 +69,13 @@ model BrandAccount {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  contentIdeas  ContentIdea[]
-  postDrafts    PostDraft[]
+  contentIdeas      ContentIdea[]
+  postDrafts        PostDraft[]
+  campaigns         Campaign[]
+  hashtagSets       HashtagSet[]
+  mediaAssets       MediaAsset[]
+  schedulingRules   SchedulingRule[]
+  contentTemplates  ContentTemplate[]
 
   @@unique([platform, handle])
   @@map("brand_accounts")
@@ -68,11 +103,14 @@ model PostDraft {
   id            String      @id @default(cuid())
   brandId       String
   ideaId        String?     // Optional: link to the source idea
+  campaignId    String?     // Optional: link to campaign
+  templateId    String?     // Optional: link to template used
   platform      Platform
   scheduledAt   DateTime?   // When to publish
   caption       String      @db.Text
   mediaPlan     Json        // { type: "image", count: 3, description: "...", urls: [] }
   hashtags      String[]    // Array of hashtags
+  hashtagSetId  String?     // Optional: link to hashtag set used
   status        PostStatus  @default(DRAFT)
   resultStats   Json?       // { likes: 0, comments: 0, shares: 0, reach: 0, ... }
   publishedAt   DateTime?
@@ -80,10 +118,160 @@ model PostDraft {
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
-  brand         BrandAccount @relation(fields: [brandId], references: [id], onDelete: Cascade)
-  idea          ContentIdea? @relation(fields: [ideaId], references: [id], onDelete: SetNull)
+  brand         BrandAccount     @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  idea          ContentIdea?     @relation(fields: [ideaId], references: [id], onDelete: SetNull)
+  campaign      Campaign?        @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  template      ContentTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  hashtagSet    HashtagSet?      @relation(fields: [hashtagSetId], references: [id], onDelete: SetNull)
+
+  mediaAssets   PostMediaAsset[]
+  snapshots     PerformanceSnapshot[]
 
   @@index([brandId, status, scheduledAt])
   @@index([scheduledAt])
+  @@index([campaignId])
   @@map("post_drafts")
+}
+// Campaign Model
+model Campaign {
+  id            String          @id @default(cuid())
+  brandId       String
+  name          String
+  description   String?         @db.Text
+  goal          String?         // e.g., "Increase engagement by 20%"
+  startDate     DateTime
+  endDate       DateTime
+  status        CampaignStatus  @default(PLANNING)
+  targetMetrics Json?           // { likes: 1000, reach: 5000, ... }
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  brand         BrandAccount @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  posts         PostDraft[]
+
+  @@index([brandId, status])
+  @@index([startDate, endDate])
+  @@map("campaigns")
+}
+
+// Content Template Model
+model ContentTemplate {
+  id            String            @id @default(cuid())
+  brandId       String
+  name          String
+  description   String?           @db.Text
+  category      TemplateCategory
+  platform      Platform
+  structure     Json              // { sections: [...], variables: [...] }
+  exampleOutput String?           @db.Text
+  usageCount    Int               @default(0)
+  isPublic      Boolean           @default(false)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  brand         BrandAccount @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  posts         PostDraft[]
+
+  @@index([brandId, category])
+  @@index([platform, isPublic])
+  @@map("content_templates")
+}
+
+// Hashtag Set Model
+model HashtagSet {
+  id            String   @id @default(cuid())
+  brandId       String
+  name          String
+  description   String?
+  platform      Platform
+  hashtags      String[] // Array of hashtag strings (without #)
+  category      String?  // e.g., "product", "lifestyle", "seasonal"
+  usageCount    Int      @default(0)
+  avgPerformance Json?   // Average metrics when this set is used
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  brand         BrandAccount @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  posts         PostDraft[]
+
+  @@index([brandId, platform])
+  @@map("hashtag_sets")
+}
+
+// Media Asset Model
+model MediaAsset {
+  id            String    @id @default(cuid())
+  brandId       String
+  filename      String
+  url           String    // Storage URL
+  thumbnailUrl  String?
+  type          MediaType
+  mimeType      String
+  size          Int       // bytes
+  width         Int?
+  height        Int?
+  duration      Int?      // seconds for video
+  altText       String?
+  tags          String[]
+  metadata      Json?     // EXIF, camera info, etc.
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  brand         BrandAccount     @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  posts         PostMediaAsset[]
+
+  @@index([brandId, type])
+  @@index([tags])
+  @@map("media_assets")
+}
+
+// Junction table for PostDraft <-> MediaAsset (many-to-many)
+model PostMediaAsset {
+  id          String   @id @default(cuid())
+  postId      String
+  assetId     String
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  post        PostDraft   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  asset       MediaAsset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, assetId])
+  @@index([postId])
+  @@index([assetId])
+  @@map("post_media_assets")
+}
+
+// Scheduling Rule Model
+model SchedulingRule {
+  id            String              @id @default(cuid())
+  brandId       String
+  platform      Platform
+  strategy      SchedulingStrategy
+  name          String
+  description   String?
+  timeSlots     Json                // { monday: ["09:00", "18:00"], ... }
+  isActive      Boolean             @default(true)
+  priority      Int                 @default(0)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  brand         BrandAccount @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  @@index([brandId, platform, isActive])
+  @@map("scheduling_rules")
+}
+
+// Performance Snapshot Model (for tracking metrics over time)
+model PerformanceSnapshot {
+  id            String   @id @default(cuid())
+  postId        String
+  snapshotAt    DateTime @default(now())
+  metrics       Json     // { likes: 100, comments: 5, ... }
+  growth        Json?    // { likes: +10, comments: +2, ... } since last snapshot
+
+  post          PostDraft @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId, snapshotAt])
+  @@map("performance_snapshots")
 }
