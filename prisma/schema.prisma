@@ -1,0 +1,89 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Platform {
+  INSTAGRAM
+  THREADS
+  NOTE
+}
+
+enum IdeaStatus {
+  DRAFT
+  APPROVED
+  USED
+  ARCHIVED
+}
+
+enum PostStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  FAILED
+}
+
+model BrandAccount {
+  id            String   @id @default(cuid())
+  platform      Platform
+  handle        String
+  accessToken   String   // Encrypted
+  toneProfile   Json     // { voice: "friendly", style: "casual", emojis: true, ... }
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  contentIdeas  ContentIdea[]
+  postDrafts    PostDraft[]
+
+  @@unique([platform, handle])
+  @@map("brand_accounts")
+}
+
+model ContentIdea {
+  id            String      @id @default(cuid())
+  brandId       String
+  date          DateTime    // Target date for this content
+  theme         String      // Main theme/topic
+  hook          String      // Attention-grabbing hook
+  outline       String      @db.Text // Detailed outline
+  status        IdeaStatus  @default(DRAFT)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  brand         BrandAccount @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  postDrafts    PostDraft[]
+
+  @@index([brandId, date])
+  @@map("content_ideas")
+}
+
+model PostDraft {
+  id            String      @id @default(cuid())
+  brandId       String
+  ideaId        String?     // Optional: link to the source idea
+  platform      Platform
+  scheduledAt   DateTime?   // When to publish
+  caption       String      @db.Text
+  mediaPlan     Json        // { type: "image", count: 3, description: "...", urls: [] }
+  hashtags      String[]    // Array of hashtags
+  status        PostStatus  @default(DRAFT)
+  resultStats   Json?       // { likes: 0, comments: 0, shares: 0, reach: 0, ... }
+  publishedAt   DateTime?
+  errorLog      String?     @db.Text
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  brand         BrandAccount @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  idea          ContentIdea? @relation(fields: [ideaId], references: [id], onDelete: SetNull)
+
+  @@index([brandId, status, scheduledAt])
+  @@index([scheduledAt])
+  @@map("post_drafts")
+}
