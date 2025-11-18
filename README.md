@@ -9,10 +9,14 @@ SNS Content Autopilot is a full-stack SaaS application that streamlines social m
 **Key Features:**
 - AI-powered content idea generation from simple themes
 - Platform-specific content optimization (Instagram/Threads/Note)
+- Campaign management for coordinated content marketing
+- Content template library for consistent brand messaging
+- Hashtag strategy management and performance tracking
 - Visual calendar for monthly post scheduling
 - Brand tone customization per platform
 - Automated post scheduling with worker system
-- Performance analytics and insights
+- Comprehensive performance analytics and insights
+- Pluggable architecture for media storage, AI providers, and analytics
 
 ## Tech Stack
 
@@ -26,36 +30,70 @@ SNS Content Autopilot is a full-stack SaaS application that streamlines social m
 
 ## Domain Model
 
+### Core Entities
+
 ```
 BrandAccount
 ├── platform: INSTAGRAM | THREADS | NOTE
 ├── handle: string
 ├── accessToken: string (encrypted)
 └── toneProfile: JSON
-    ├── voice: string
-    ├── style: string
-    ├── targetAudience: string
-    └── platform-specific settings
 
 ContentIdea
 ├── brandId → BrandAccount
-├── date: DateTime
-├── theme: string
-├── hook: string
-├── outline: string
+├── theme, hook, outline
 └── status: DRAFT | APPROVED | USED | ARCHIVED
 
 PostDraft
 ├── brandId → BrandAccount
 ├── ideaId → ContentIdea (optional)
-├── platform: INSTAGRAM | THREADS | NOTE
-├── scheduledAt: DateTime
-├── caption: string
-├── mediaPlan: JSON
-├── hashtags: string[]
+├── campaignId → Campaign (optional)
+├── templateId → ContentTemplate (optional)
+├── hashtagSetId → HashtagSet (optional)
+├── platform, caption, mediaPlan, hashtags
 ├── status: DRAFT | SCHEDULED | PUBLISHED | FAILED
-└── resultStats: JSON (likes, comments, reach, etc.)
+└── resultStats: JSON
+
+Campaign
+├── brandId → BrandAccount
+├── name, description, goal
+├── startDate, endDate
+├── status: PLANNING | ACTIVE | COMPLETED | ARCHIVED
+├── targetMetrics: JSON
+└── posts: PostDraft[]
+
+ContentTemplate
+├── brandId → BrandAccount
+├── name, category, platform
+├── structure: JSON (sections, variables)
+├── exampleOutput: string
+└── usageCount: number
+
+HashtagSet
+├── brandId → BrandAccount
+├── name, platform, category
+├── hashtags: string[]
+├── usageCount: number
+└── avgPerformance: JSON
+
+MediaAsset
+├── brandId → BrandAccount
+├── url, type, metadata
+└── posts: PostDraft[] (many-to-many)
+
+SchedulingRule
+├── brandId → BrandAccount
+├── platform, strategy
+└── timeSlots: JSON
+
+PerformanceSnapshot
+├── postId → PostDraft
+├── snapshotAt: DateTime
+├── metrics: JSON
+└── growth: JSON
 ```
+
+For detailed domain documentation, see [docs/DOMAIN_MODEL.md](docs/DOMAIN_MODEL.md)
 
 ## Getting Started
 

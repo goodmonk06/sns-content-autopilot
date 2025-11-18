@@ -296,16 +296,173 @@ How do you reset on weekends?`,
     published: draft3.id,
   })
 
+  // Create campaigns
+  const twoWeeksAgo = new Date(today)
+  twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14)
+
+  const twoWeeksFromNow = new Date(today)
+  twoWeeksFromNow.setDate(twoWeeksFromNow.getDate() + 14)
+
+  const campaign1 = await prisma.campaign.create({
+    data: {
+      brandId: instagramAccount.id,
+      name: 'Q1 Wellness Challenge',
+      description: 'A 30-day wellness challenge to engage our community',
+      goal: 'Increase engagement by 25% and gain 500 new followers',
+      startDate: twoWeeksAgo,
+      endDate: twoWeeksFromNow,
+      status: 'ACTIVE',
+      targetMetrics: {
+        likes: 5000,
+        comments: 500,
+        reach: 20000,
+      },
+    },
+  })
+
+  // Link published post to campaign
+  await prisma.postDraft.update({
+    where: { id: draft3.id },
+    data: { campaignId: campaign1.id },
+  })
+
+  console.log('Created campaigns:', { campaign1: campaign1.id })
+
+  // Create content templates
+  const template1 = await prisma.contentTemplate.create({
+    data: {
+      brandId: instagramAccount.id,
+      name: 'Motivational Quote Template',
+      description: 'Quick inspirational quotes with branded formatting',
+      category: 'ENGAGEMENT',
+      platform: Platform.INSTAGRAM,
+      structure: {
+        sections: [
+          { name: 'quote', placeholder: 'Enter the quote', required: true },
+          { name: 'author', placeholder: 'Quote author', required: false },
+          { name: 'cta', placeholder: 'Call to action', required: false },
+        ],
+        variables: [
+          { name: 'quote', description: 'The main quote text', defaultValue: '' },
+          { name: 'author', description: 'Who said it', defaultValue: 'Unknown' },
+          { name: 'cta', description: 'What action to take', defaultValue: 'Save this for later!' },
+        ],
+      },
+      exampleOutput: `"{{quote}}" - {{author}}\n\n{{cta}}\n\n#motivation #inspiration #quotes`,
+      isPublic: false,
+    },
+  })
+
+  const template2 = await prisma.contentTemplate.create({
+    data: {
+      brandId: instagramAccount.id,
+      name: 'Product Announcement',
+      description: 'Standard format for new product launches',
+      category: 'PROMOTIONAL',
+      platform: Platform.INSTAGRAM,
+      structure: {
+        sections: [
+          { name: 'productName', placeholder: 'Product name', required: true },
+          { name: 'benefit', placeholder: 'Main benefit', required: true },
+          { name: 'availability', placeholder: 'When/where available', required: true },
+        ],
+        variables: [
+          { name: 'productName', description: 'Name of the product' },
+          { name: 'benefit', description: 'Key benefit or feature' },
+          { name: 'availability', description: 'Launch date and where to buy' },
+        ],
+      },
+      exampleOutput: `✨ Introducing {{productName}} ✨\n\n{{benefit}}\n\n{{availability}}\n\nLink in bio!`,
+      isPublic: false,
+    },
+  })
+
+  console.log('Created templates:', { template1: template1.id, template2: template2.id })
+
+  // Create hashtag sets
+  const hashtagSet1 = await prisma.hashtagSet.create({
+    data: {
+      brandId: instagramAccount.id,
+      name: 'Wellness & Lifestyle',
+      description: 'General wellness and lifestyle hashtags',
+      platform: Platform.INSTAGRAM,
+      category: 'lifestyle',
+      hashtags: [
+        'wellness',
+        'selfcare',
+        'mindfulness',
+        'healthylifestyle',
+        'wellnessjourney',
+        'selflove',
+        'mentalhealth',
+        'balance',
+        'positivevibes',
+        'dailyroutine',
+      ],
+    },
+  })
+
+  const hashtagSet2 = await prisma.hashtagSet.create({
+    data: {
+      brandId: instagramAccount.id,
+      name: 'Motivation & Growth',
+      description: 'Hashtags for motivational content',
+      platform: Platform.INSTAGRAM,
+      category: 'motivation',
+      hashtags: [
+        'motivation',
+        'personalgrowth',
+        'mindset',
+        'growthmindset',
+        'selfimprovement',
+        'goals',
+        'inspiration',
+        'successmindset',
+        'productivity',
+        'dailymotivation',
+      ],
+    },
+  })
+
+  const hashtagSet3 = await prisma.hashtagSet.create({
+    data: {
+      brandId: threadsAccount.id,
+      name: 'Tech & AI',
+      description: 'Tech and AI discussion hashtags',
+      platform: Platform.THREADS,
+      category: 'tech',
+      hashtags: ['AI', 'tech', 'productivity', 'innovation', 'future'],
+    },
+  })
+
+  console.log('Created hashtag sets:', {
+    hashtagSet1: hashtagSet1.id,
+    hashtagSet2: hashtagSet2.id,
+    hashtagSet3: hashtagSet3.id,
+  })
+
+  // Link hashtag set to published post
+  await prisma.postDraft.update({
+    where: { id: draft3.id },
+    data: { hashtagSetId: hashtagSet1.id },
+  })
+
   console.log('Database seeded successfully!')
   console.log('\n📊 Summary:')
   console.log(`- ${3} brand accounts created`)
   console.log(`- ${3} content ideas created`)
   console.log(`- ${3} post drafts created (2 scheduled, 1 published)`)
-  console.log('\n🎯 Demo flow ready:')
+  console.log(`- ${1} active campaign with linked posts`)
+  console.log(`- ${2} content templates ready to use`)
+  console.log(`- ${3} hashtag sets for strategy management`)
+  console.log('\n🎯 Demo flows ready:')
   console.log('1. Visit /ideas to see AI-generated content ideas')
   console.log('2. Visit /drafts to see scheduled and published posts')
   console.log('3. Visit /calendar to see posts on the calendar')
   console.log('4. Visit /analytics to see performance metrics')
+  console.log('5. Visit /campaigns to manage marketing campaigns')
+  console.log('6. Use templates for consistent content creation')
+  console.log('7. Track hashtag performance and optimize strategy')
 }
 
 main()
